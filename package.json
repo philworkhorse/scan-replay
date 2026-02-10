@@ -1,0 +1,13 @@
+{
+  "name": "scan-replay",
+  "version": "1.0.0",
+  "description": "Interactive CT Scan Timeline Replay — 480+ scans as a scrubable narrative",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "bundle": "node bundle-scans.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scan Replay — 再生 — 480 Scans of Crypto Twitter</title>
+<meta name="description" content="Watch 480+ CT scans replay like a film. See how crypto narratives emerge, peak, and die across 15 days.">
+<meta property="og:title" content="Scan Replay — What an AI Saw Watching Crypto Twitter">
+<meta property="og:description" content="480+ scans replayed as narrative film. Watch tickers emerge, fear spike, and stories collide.">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --border: #1e1e2e;
+  --text: #e0e0e8;
+  --dim: #6b6b80;
+  --accent: #4ecdc4;
+  --bull: #4ecdc4;
+  --bear: #ff6b6b;
+  --neutral: #3a3a4a;
+  --gold: #ffd700;
+  --font: 'Inter', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'SF Mono', monospace;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Loading */
+#loading {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 1rem;
+  background: var(--bg); z-index: 100;
+  transition: opacity 0.5s;
+}
+#loading.hide { opacity: 0; pointer-events: none; }
+#loading h2 { font-weight: 300; font-size: 1.2rem; color: var(--dim); }
+.loader { width: 40px; height: 40px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Header */
+header {
+  padding: 2rem 2rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+header h1 {
+  font-size: 1.6rem; font-weight: 300;
+  display: flex; align-items: baseline; gap: 0.5rem;
+}
+header h1 .jp { color: var(--dim); font-size: 1rem; }
+header .sub { color: var(--dim); font-size: 0.85rem; margin-top: 0.3rem; }
+
+/* Main layout */
+.container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; }
+
+/* Transport controls */
+.transport {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.transport-top {
+  display: flex; align-items: center; gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+.transport-top .scan-num {
+  font-family: var(--mono); font-size: 0.9rem; color: var(--accent);
+  min-width: 90px;
+}
+.transport-top .timestamp {
+  font-family: var(--mono); font-size: 0.85rem; color: var(--dim);
+  flex: 1;
+}
+.transport-top .speed {
+  font-family: var(--mono); font-size: 0.8rem; color: var(--dim);
+}
+
+/* Buttons */
+.btn-group { display: flex; gap: 0.4rem; }
+.btn {
+  background: var(--border);
+  border: 1px solid #2a2a3a;
+  color: var(--text);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { background: #2a2a3a; border-color: var(--accent); }
+.btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+/* Timeline slider */
+.timeline-track {
+  position: relative;
+  height: 60px;
+  margin: 0.5rem 0;
+}
+.timeline-bars {
+  position: absolute; inset: 0;
+  display: flex; align-items: flex-end;
+  gap: 0;
+}
+.timeline-bars .bar {
+  flex: 1;
+  min-width: 1px;
+  position: relative;
+  cursor: pointer;
+}
+.bar .bull-bar {
+  background: var(--bull);
+  opacity: 0.3;
+  position: absolute; bottom: 50%; left: 0; right: 0;
+  transition: opacity 0.1s;
+}
+.bar .bear-bar {
+  background: var(--bear);
+  opacity: 0.3;
+  position: absolute; top: 50%; left: 0; right: 0;
+  transition: opacity 0.1s;
+}
+.bar.active .bull-bar,
+.bar.active .bear-bar { opacity: 1; }
+.bar:hover .bull-bar,
+.bar:hover .bear-bar { opacity: 0.7; }
+
+.timeline-center {
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 1px;
+  background: var(--border);
+}
+.playhead {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  z-index: 5;
+  transition: left 0.05s linear;
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* Day markers */
+.day-markers {
+  display: flex;
+  font-size: 0.65rem;
+  color: var(--dim);
+  font-family: var(--mono);
+  padding-top: 0.3rem;
+}
+.day-markers span {
+  border-left: 1px solid var(--border);
+  padding-left: 4px;
+}
+
+/* Grid */
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+/* Panel */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem 1.5rem;
+}
+.panel h3 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+
+/* Sentiment gauge */
+.sentiment-gauge {
+  display: flex; align-items: center; gap: 1rem;
+  margin-bottom: 1rem;
+}
+.gauge-bar {
+  flex: 1; height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+}
+.gauge-bull {
+  background: var(--bull);
+  transition: width 0.3s;
+}
+.gauge-bear {
+  background: var(--bear);
+  transition: width 0.3s;
+}
+.gauge-neutral {
+  background: var(--neutral);
+  flex: 1;
+}
+.sentiment-nums {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 0.85rem;
+}
+.sentiment-nums .bull { color: var(--bull); }
+.sentiment-nums .bear { color: var(--bear); }
+.sentiment-nums .neut { color: var(--dim); }
+
+/* Ticker list */
+.ticker-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.ticker-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-family: var(--mono); font-size: 0.85rem;
+}
+.ticker-row .name {
+  min-width: 100px;
+  color: var(--accent);
+  font-weight: 500;
+}
+.ticker-row .count-bar {
+  flex: 1; height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ticker-row .count-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.ticker-row .count-num {
+  min-width: 24px; text-align: right;
+  color: var(--dim); font-size: 0.8rem;
+}
+
+/* Posts */
+.post-list { display: flex; flex-direction: column; gap: 0.8rem; }
+.post {
+  padding: 0.8rem;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  border-left: 2px solid var(--border);
+  transition: border-color 0.2s;
+}
+.post:hover { border-left-color: var(--accent); }
+.post .post-meta {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.8rem; color: var(--dim);
+  margin-bottom: 0.3rem;
+}
+.post .post-meta .author { color: var(--accent); font-weight: 500; }
+.post .post-meta .likes { color: var(--bear); }
+.post .post-text {
+  font-size: 0.85rem; line-height: 1.5;
+  color: var(--text); opacity: 0.85;
+}
+
+/* Keywords */
+.kw-grid {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+}
+.kw-tag {
+  padding: 0.3rem 0.6rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--dim);
+  transition: all 0.2s;
+}
+.kw-tag.gold { color: var(--gold); border-color: rgba(255,215,0,0.3); }
+.kw-tag.macro { color: #ff9f43; border-color: rgba(255,159,67,0.3); }
+.kw-tag.hot { color: var(--bear); border-color: rgba(255,107,107,0.3); }
+
+/* Narrative ticker (bottom crawl) */
+.narrative-crawl {
+  margin-top: 1.5rem;
+  padding: 0.8rem 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--dim);
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+}
+.crawl-text {
+  display: inline-block;
+  animation: crawl 30s linear infinite;
+}
+@keyframes crawl {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Rolling averages */
+.rolling-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+.stat-box {
+  text-align: center;
+  padding: 0.6rem;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+}
+.stat-box .label { font-size: 0.7rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-box .value { font-family: var(--mono); font-size: 1.3rem; font-weight: 600; margin-top: 0.2rem; }
+.stat-box .value.bull { color: var(--bull); }
+.stat-box .value.bear { color: var(--bear); }
+.stat-box .value.gold { color: var(--gold); }
+
+/* Keyboard hint */
+.kb-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--dim);
+  margin-top: 1rem;
+  opacity: 0.6;
+}
+.kb-hint kbd {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  background: var(--border);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  margin: 0 0.1rem;
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loader"></div>
+  <h2>Loading 480+ scans...</h2>
+</div>
+
+<header>
+  <h1>Scan Replay <span class="jp">再生</span></h1>
+  <div class="sub">480+ CT scans replayed as narrative film. Watch how crypto stories emerge, collide, and die.</div>
+</header>
+
+<div class="container">
+  <!-- Transport -->
+  <div class="transport">
+    <div class="transport-top">
+      <div class="btn-group">
+        <button class="btn" id="btn-start" title="Jump to start">⏮</button>
+        <button class="btn" id="btn-back" title="Previous scan">◀</button>
+        <button class="btn active" id="btn-play" title="Play/Pause">▶</button>
+        <button class="btn" id="btn-fwd" title="Next scan">▶</button>
+        <button class="btn" id="btn-end" title="Jump to end">⏭</button>
+      </div>
+      <span class="scan-num" id="scan-num">#1 / 480</span>
+      <span class="timestamp" id="timestamp">—</span>
+      <div class="btn-group">
+        <button class="btn speed-btn" data-speed="0.5">0.5×</button>
+        <button class="btn speed-btn active" data-speed="1">1×</button>
+        <button class="btn speed-btn" data-speed="2">2×</button>
+        <button class="btn speed-btn" data-speed="5">5×</button>
+        <button class="btn speed-btn" data-speed="10">10×</button>
+      </div>
+    </div>
+
+    <div class="timeline-track" id="timeline">
+      <div class="timeline-center"></div>
+      <div class="timeline-bars" id="timeline-bars"></div>
+      <div class="playhead" id="playhead"></div>
+    </div>
+    <div class="day-markers" id="day-markers"></div>
+  </div>
+
+  <!-- Rolling stats -->
+  <div class="rolling-stats">
+    <div class="stat-box">
+      <div class="label">Bullish</div>
+      <div class="value bull" id="stat-bull">—</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">Bearish</div>
+      <div class="value bear" id="stat-bear">—</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">Gold Mentions</div>
+      <div class="value gold" id="stat-gold">—</div>
+    </div>
+  </div>
+
+  <!-- Grid -->
+  <div class="grid">
+    <!-- Left: Sentiment + Tickers -->
+    <div>
+      <div class="panel" style="margin-bottom:1.5rem">
+        <h3>📊 Sentiment</h3>
+        <div class="gauge-bar">
+          <div class="gauge-bull" id="gauge-bull"></div>
+          <div class="gauge-neutral"></div>
+          <div class="gauge-bear" id="gauge-bear"></div>
+        </div>
+        <div class="sentiment-nums">
+          <span class="bull" id="pct-bull">—</span>
+          <span class="neut" id="pct-neut">—</span>
+          <span class="bear" id="pct-bear">—</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>🏷️ Top Tickers</h3>
+        <div class="ticker-list" id="ticker-list"></div>
+      </div>
+    </div>
+
+    <!-- Right: Posts + Keywords -->
+    <div>
+      <div class="panel" style="margin-bottom:1.5rem">
+        <h3>🔑 Keywords</h3>
+        <div class="kw-grid" id="kw-grid"></div>
+      </div>
+
+      <div class="panel">
+        <h3>🔥 Top Posts</h3>
+        <div class="post-list" id="post-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Narrative crawl -->
+  <div class="narrative-crawl">
+    <span class="crawl-text" id="crawl-text">Loading narrative...</span>
+  </div>
+
+  <div class="kb-hint">
+    <kbd>Space</kbd> play/pause &nbsp;
+    <kbd>←</kbd><kbd>→</kbd> step &nbsp;
+    <kbd>1</kbd>-<kbd>5</kbd> speed &nbsp;
+    <kbd>Home</kbd><kbd>End</kbd> jump
+  </div>
+</div>
+
+<script>
+let scans = [];
+let idx = 0;
+let playing = false;
+let speed = 1;
+let timer = null;
+const BASE_MS = 800; // ms per scan at 1x
+
+async function init() {
+  const res = await fetch('/api/scans');
+  scans = await res.json();
+  document.getElementById('loading').classList.add('hide');
+  buildTimeline();
+  render(0);
+  // Auto-play from start
+  play();
+}
+
+function buildTimeline() {
+  const bars = document.getElementById('timeline-bars');
+  const markers = document.getElementById('day-markers');
+  
+  // Find max sentiment for scaling
+  const maxBull = Math.max(...scans.map(s => s.s.b), 1);
+  const maxBear = Math.max(...scans.map(s => s.s.br), 1);
+  const maxS = Math.max(maxBull, maxBear);
+  
+  let lastDay = '';
+  const dayPositions = [];
+  
+  scans.forEach((scan, i) => {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.onclick = () => { idx = i; render(i); };
+    
+    const bullH = (scan.s.b / maxS) * 28;
+    const bearH = (scan.s.br / maxS) * 28;
+    
+    const bullBar = document.createElement('div');
+    bullBar.className = 'bull-bar';
+    bullBar.style.height = bullH + 'px';
+    
+    const bearBar = document.createElement('div');
+    bearBar.className = 'bear-bar';
+    bearBar.style.height = bearH + 'px';
+    
+    bar.appendChild(bullBar);
+    bar.appendChild(bearBar);
+    bars.appendChild(bar);
+    
+    // Day markers
+    const d = new Date(scan.ts);
+    const day = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (day !== lastDay) {
+      dayPositions.push({ day, pct: (i / scans.length * 100) });
+      lastDay = day;
+    }
+  });
+  
+  // Render day markers
+  dayPositions.forEach(({ day, pct }) => {
+    const span = document.createElement('span');
+    span.textContent = day;
+    span.style.position = 'absolute';
+    span.style.left = pct + '%';
+    markers.appendChild(span);
+  });
+  markers.style.position = 'relative';
+  markers.style.height = '1.2rem';
+}
+
+function render(i) {
+  if (i < 0 || i >= scans.length) return;
+  idx = i;
+  const scan = scans[i];
+  const d = new Date(scan.ts);
+  
+  // Transport
+  document.getElementById('scan-num').textContent = `#${i + 1} / ${scans.length}`;
+  document.getElementById('timestamp').textContent = d.toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true
+  });
+  
+  // Playhead
+  const pct = (i / (scans.length - 1)) * 100;
+  document.getElementById('playhead').style.left = pct + '%';
+  
+  // Active bar
+  document.querySelectorAll('.bar').forEach((b, j) => b.classList.toggle('active', j === i));
+  
+  // Sentiment gauge
+  document.getElementById('gauge-bull').style.width = scan.s.b + '%';
+  document.getElementById('gauge-bear').style.width = scan.s.br + '%';
+  document.getElementById('pct-bull').textContent = scan.s.b + '% bull';
+  document.getElementById('pct-neut').textContent = scan.s.n + '% neutral';
+  document.getElementById('pct-bear').textContent = scan.s.br + '% bear';
+  
+  // Rolling stats (5-scan window)
+  const window5 = scans.slice(Math.max(0, i - 4), i + 1);
+  const avgBull = (window5.reduce((s, x) => s + x.s.b, 0) / window5.length).toFixed(1);
+  const avgBear = (window5.reduce((s, x) => s + x.s.br, 0) / window5.length).toFixed(1);
+  const goldCount = window5.reduce((s, x) => {
+    const cm = x.kw?.commodities || x.kw?.metals || {};
+    return s + (cm.gold || 0);
+  }, 0);
+  document.getElementById('stat-bull').textContent = avgBull + '%';
+  document.getElementById('stat-bear').textContent = avgBear + '%';
+  document.getElementById('stat-gold').textContent = goldCount;
+  
+  // Tickers
+  const tickerList = document.getElementById('ticker-list');
+  tickerList.innerHTML = '';
+  const maxCount = scan.t.length > 0 ? scan.t[0][1] : 1;
+  scan.t.slice(0, 8).forEach(([name, count]) => {
+    const row = document.createElement('div');
+    row.className = 'ticker-row';
+    row.innerHTML = `
+      <span class="name">$${name}</span>
+      <div class="count-bar"><div class="count-fill" style="width:${(count/maxCount)*100}%"></div></div>
+      <span class="count-num">${count}</span>
+    `;
+    tickerList.appendChild(row);
+  });
+  if (scan.t.length === 0) {
+    tickerList.innerHTML = '<div style="color:var(--dim);font-size:0.85rem">No tickers this scan</div>';
+  }
+  
+  // Keywords
+  const kwGrid = document.getElementById('kw-grid');
+  kwGrid.innerHTML = '';
+  const allKw = {};
+  for (const [cat, kws] of Object.entries(scan.kw || {})) {
+    for (const [k, v] of Object.entries(kws)) {
+      allKw[k] = { count: v, cat };
+    }
+  }
+  const sorted = Object.entries(allKw).sort((a, b) => b[1].count - a[1].count);
+  sorted.forEach(([kw, { count, cat }]) => {
+    const tag = document.createElement('span');
+    let cls = 'kw-tag';
+    if (kw === 'gold' || kw === 'silver' || kw === 'copper') cls += ' gold';
+    else if (cat === 'macro') cls += ' macro';
+    else if (count >= 3) cls += ' hot';
+    tag.className = cls;
+    tag.textContent = `${kw} (${count})`;
+    kwGrid.appendChild(tag);
+  });
+  if (sorted.length === 0) {
+    kwGrid.innerHTML = '<span class="kw-tag">quiet scan</span>';
+  }
+  
+  // Posts
+  const postList = document.getElementById('post-list');
+  postList.innerHTML = '';
+  (scan.he || []).slice(0, 4).forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'post';
+    div.innerHTML = `
+      <div class="post-meta">
+        <span class="author">@${p.u || 'unknown'}</span>
+        <span class="likes">❤️ ${(p.l || 0).toLocaleString()}</span>
+      </div>
+      <div class="post-text">${escHtml(p.txt || '')}</div>
+    `;
+    if (p.url) {
+      div.style.cursor = 'pointer';
+      div.onclick = () => window.open(p.url, '_blank');
+    }
+    postList.appendChild(div);
+  });
+  if ((scan.he || []).length === 0) {
+    postList.innerHTML = '<div style="color:var(--dim);font-size:0.85rem">No high-engagement posts</div>';
+  }
+  
+  // Narrative crawl
+  const crawl = document.getElementById('crawl-text');
+  const parts = [];
+  if (scan.s.b > 15) parts.push('🟢 Euphoric sentiment');
+  else if (scan.s.b > 10) parts.push('🟢 Bullish lean');
+  else if (scan.s.br > scan.s.b) parts.push('🔴 Bearish tilt');
+  else parts.push('⚪ Neutral');
+  
+  scan.t.slice(0, 5).forEach(([n, c]) => parts.push(`$${n}(${c})`));
+  
+  const gold = allKw.gold?.count || 0;
+  if (gold >= 5) parts.push('🥇 Gold elevated — fear signal');
+  else if (gold >= 3) parts.push('🥇 Gold present');
+  
+  const fedKw = allKw.fed?.count || allKw.cpi?.count || allKw.tariff?.count || 0;
+  if (fedKw > 0) parts.push('🏛️ Macro chatter');
+  
+  crawl.textContent = parts.join('  •  ');
+}
+
+function play() {
+  if (playing) { pause(); return; }
+  playing = true;
+  document.getElementById('btn-play').textContent = '⏸';
+  document.getElementById('btn-play').classList.add('active');
+  tick();
+}
+
+function pause() {
+  playing = false;
+  clearTimeout(timer);
+  document.getElementById('btn-play').textContent = '▶';
+  document.getElementById('btn-play').classList.remove('active');
+}
+
+function tick() {
+  if (!playing) return;
+  if (idx >= scans.length - 1) { pause(); return; }
+  idx++;
+  render(idx);
+  timer = setTimeout(tick, BASE_MS / speed);
+}
+
+function setSpeed(s) {
+  speed = s;
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.dataset.speed) === s);
+  });
+  // If playing, retick with new speed
+  if (playing) {
+    clearTimeout(timer);
+    timer = setTimeout(tick, BASE_MS / speed);
+  }
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Controls
+document.getElementById('btn-play').onclick = play;
+document.getElementById('btn-back').onclick = () => { if (idx > 0) render(--idx); };
+document.getElementById('btn-fwd').onclick = () => { if (idx < scans.length - 1) render(++idx); };
+document.getElementById('btn-start').onclick = () => render(0);
+document.getElementById('btn-end').onclick = () => render(scans.length - 1);
+
+document.querySelectorAll('.speed-btn').forEach(b => {
+  b.onclick = () => setSpeed(parseFloat(b.dataset.speed));
+});
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); play(); }
+  if (e.code === 'ArrowLeft') { if (idx > 0) render(--idx); }
+  if (e.code === 'ArrowRight') { if (idx < scans.length - 1) render(++idx); }
+  if (e.code === 'Home') render(0);
+  if (e.code === 'End') render(scans.length - 1);
+  if (e.key === '1') setSpeed(0.5);
+  if (e.key === '2') setSpeed(1);
+  if (e.key === '3') setSpeed(2);
+  if (e.key === '4') setSpeed(5);
+  if (e.key === '5') setSpeed(10);
+});
+
+init();
+</script>
+</body>
+</html>
